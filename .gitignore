@@ -89,11 +89,6 @@ lint/tmp/
 # Android Profiling
 *.hprof
 
-# Cordova plugins for Capacitor
-capacitor-cordova-android-plugins
-# But we need to track the variables file
-!capacitor-cordova-android-plugins/cordova.variables.gradle
-
 # Copied web assets
 app/src/main/assets/public
 
