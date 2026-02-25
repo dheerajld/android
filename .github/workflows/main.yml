@@ -14,17 +14,37 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check project structure
+      run: |
+        if [ -f "package.json" ]; then
+          echo "PROJECT_TYPE=full" >> $GITHUB_ENV
+        else
+          echo "PROJECT_TYPE=android-only" >> $GITHUB_ENV
+        fi
+
     - name: Set up Node.js
+      if: env.PROJECT_TYPE == 'full'
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      if: env.PROJECT_TYPE == 'full'
+      run: |
+        if [ -f "package-lock.json" ]; then
+          npm ci
+        else
+          npm install
+        fi
 
     - name: Build React app
+      if: env.PROJECT_TYPE == 'full'
       run: npm run build
+
+    - name: Sync with Capacitor
+      if: env.PROJECT_TYPE == 'full'
+      run: npx cap sync android
 
     - name: Set up Java
       uses: actions/setup-java@v4
@@ -46,22 +66,40 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Grant execute permission for gradlew
-      run: cd android && chmod +x gradlew
+      run: |
+        if [ "$PROJECT_TYPE" = "full" ]; then
+          cd android
+        fi
+        chmod +x gradlew
 
     - name: Build Android APK
       run: |
-        cd android
+        if [ "$PROJECT_TYPE" = "full" ]; then
+          cd android
+        fi
         ./gradlew assembleDebug
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        path: |
+          android/app/build/outputs/apk/debug/app-debug.apk
+          app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
 
     - name: Get APK info
       run: |
-        cd android
-        echo "APK Size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
-        echo "APK Path: app/build/outputs/apk/debug/app-debug.apk"
+        if [ "$PROJECT_TYPE" = "full" ]; then
+          cd android
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+        else
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+        fi
+        
+        if [ -f "$APK_PATH" ]; then
+          echo "APK Size: $(du -h $APK_PATH | cut -f1)"
+          echo "APK Path: $APK_PATH"
+        else
+          echo "APK not found at expected path"
+        fi
